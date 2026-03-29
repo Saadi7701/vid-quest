@@ -28,11 +28,7 @@ app.add_middleware(
 )
 
 # Paths from system discovery
-DEFAULT_FFMPEG_PATH = r"C:\ffmpeg-2026-02-18-git-52b676bb29-full_build\ffmpeg-2026-02-18-git-52b676bb29-full_build\bin\ffmpeg.exe"
-
 def get_ffmpeg_path():
-    if os.path.exists(DEFAULT_FFMPEG_PATH):
-        return DEFAULT_FFMPEG_PATH
     import shutil
     path = shutil.which("ffmpeg")
     if path:
@@ -45,7 +41,7 @@ FFMPEG_DIR = os.path.dirname(FFMPEG_PATH) if os.path.isabs(FFMPEG_PATH) else Non
 TEMP_DIR = os.path.join(os.getcwd(), "temp")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-FRONTEND_DIR = os.path.abspath(os.path.join(os.getcwd(), "..", "frontend"))
+# Vercel handles static files from the root directory automatically
 
 class InfoRequest(BaseModel):
     url: str
@@ -138,9 +134,9 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         progress_tracker.unregister(client_id)
 
 # Serve frontend
-@app.get("/")
-async def serve_index():
-    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
 
 @app.post("/api/info")
 async def get_info(request: InfoRequest):
@@ -439,7 +435,7 @@ async def download_video(
         logger.exception("Download error")
         raise HTTPException(status_code=500, detail=str(e))
 
-app.mount("/", StaticFiles(directory=FRONTEND_DIR), name="frontend")
+# app.mount("/", StaticFiles(directory=FRONTEND_DIR), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
