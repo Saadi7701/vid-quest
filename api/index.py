@@ -38,7 +38,7 @@ def get_ffmpeg_path():
 FFMPEG_PATH = get_ffmpeg_path()
 FFMPEG_DIR = os.path.dirname(FFMPEG_PATH) if os.path.isabs(FFMPEG_PATH) else None
 
-TEMP_DIR = os.path.join(os.getcwd(), "temp")
+TEMP_DIR = "/tmp/video_quest"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 # Vercel handles static files from the root directory automatically
