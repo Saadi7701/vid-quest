@@ -123,7 +123,7 @@ function renderResults(data, originalUrl) {
                 ${data.video_formats.map(f => `
                     <div class="format-item" data-format-id="${f.id}">
                         <div class="format-label">${f.quality}</div>
-                        <div class="format-info">MP4 • ${formatBytes(f.filesize) || 'N/A'}</div>
+                        <div class="format-info">MP4 • ${formatBytes(f.filesize) || 'N/A'}${f.has_audio ? ' • Audio Included' : ''}</div>
                         <button class="btn-download" onclick="performDownload('${originalUrl}', '${f.id}', 'mp4', this)">
                             Download Video
                         </button>

@@ -236,7 +236,8 @@ async def get_info(request: InfoRequest):
                     "quality": f"{target}p",
                     "ext": best_f.get("ext"),
                     "height": best_f.get("height"),
-                    "filesize": filesize
+                    "filesize": filesize,
+                    "has_audio": best_f.get("acodec") != "none" and best_f.get("acodec") is not None
                 })
                 seen_heights.add(best_f.get("height"))
 
@@ -265,7 +266,8 @@ async def get_info(request: InfoRequest):
                     "quality": f"{best_v.get('height') or 'Best'}p",
                     "ext": best_v.get("ext"),
                     "height": best_v.get("height"),
-                    "filesize": filesize
+                    "filesize": filesize,
+                    "has_audio": best_v.get("acodec") != "none" and best_v.get("acodec") is not None
                 })
             elif formats:
                 # Absolute fallback: just pick the last format
@@ -282,7 +284,8 @@ async def get_info(request: InfoRequest):
                     "quality": "Best Quality",
                     "ext": best_v.get("ext"),
                     "height": best_v.get("height"),
-                    "filesize": filesize
+                    "filesize": filesize,
+                    "has_audio": best_v.get("acodec") != "none" and best_v.get("acodec") is not None
                 })
 
         # 2. Always Add Audio Option
@@ -324,11 +327,12 @@ async def download_video(
         loop = asyncio.get_event_loop()
         import yt_dlp
         
-        # Robust format selection: try requested + audio, fallback to best, or just requested
+        # Robust format selection: try format_id + audio (if needed), fallback to best.
         if final_ext == "mp4":
-            # For social media, often video and audio are already combined in 'best'
-            format_spec = f"{format_id}+bestaudio/bestvideo+bestaudio/best"
-        else:
+            # If the ID already has audio, just use it. Otherwise, merge with best audio.
+            # We add a fallback to just 'best' if the specific ID fails.
+            format_spec = f"({format_id})+bestaudio[ext=m4a]/({format_id})/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
+        else: # mp3
             format_spec = "bestaudio/best"
 
         ydl_opts = {
