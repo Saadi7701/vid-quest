@@ -51,6 +51,24 @@ class DownloadRequest(BaseModel):
     format_id: str
     extension: str
 
+def setup_cookies():
+    # Check for YT_COOKIES content in environment variable (Safest for Vercel)
+    cookies_content = os.environ.get("YT_COOKIES")
+    if cookies_content:
+        cookies_path = "/tmp/cookies_quest.txt"
+        try:
+            with open(cookies_path, "w", encoding="utf-8") as f:
+                f.write(cookies_content)
+            return cookies_path
+        except Exception as e:
+            logger.error(f"Error writing cookies from env: {e}")
+    
+    # Fallback to local cookies.txt (ONLY if it exists)
+    local_path = os.path.join(os.getcwd(), "cookies.txt")
+    if os.path.exists(local_path):
+        return local_path
+    return None
+
 def cleanup_file(filepath: str):
     """Cleanup temporary files after download."""
     time.sleep(60) # Wait a bit to ensure transfer is complete
@@ -167,11 +185,11 @@ async def get_info(request: InfoRequest):
         elif "facebook.com" in request.url:
             ydl_opts['referer'] = 'https://www.facebook.com/'
             
-        # Use cookies if available
-        cookies_path = os.path.join(os.getcwd(), "cookies.txt")
-        if os.path.exists(cookies_path):
+        # Use cookies to avoid bot detection
+        cookies_path = setup_cookies()
+        if cookies_path:
             ydl_opts['cookiefile'] = cookies_path
-            logger.info("Using cookies in get_info")
+            logger.info(f"Using cookies from {cookies_path} in get_info")
             
         import yt_dlp
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -337,11 +355,11 @@ async def download_video(
         elif "facebook.com" in url:
             ydl_opts['referer'] = 'https://www.facebook.com/'
 
-        # Use cookies if available
-        cookies_path = os.path.join(os.getcwd(), "cookies.txt")
-        if os.path.exists(cookies_path):
+        # Use cookies to avoid bot detection
+        cookies_path = setup_cookies()
+        if cookies_path:
             ydl_opts['cookiefile'] = cookies_path
-            logger.info("Using cookies.txt for download")
+            logger.info(f"Using cookies.txt for download from {cookies_path}")
 
         if final_ext == "mp4":
             ydl_opts.update({
