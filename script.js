@@ -6,7 +6,7 @@ const resultsArea = document.getElementById('resultsArea');
 const errorArea = document.getElementById('errorArea');
 
 const API_BASE = "";
-const WS_BASE = `ws://${window.location.host}`;
+const WS_BASE = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
 const CLIENT_ID = Math.random().toString(36).substring(7);
 
 function showToast(message, type = 'success') {
