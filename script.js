@@ -33,44 +33,43 @@ function showToast(message, type = 'success') {
     }, 4000);
 }
 
-function setupProgressSocket() {
-    const socket = new WebSocket(`${WS_BASE}/ws/progress/${CLIENT_ID}`);
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        const card = document.querySelector(`[data-format-id="${data.format_id}"]`);
-        if (!card) return;
+async function pollProgress(formatId, btn, progressContainer, progressFill) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/progress/${CLIENT_ID}`);
+            if (!res.ok) return;
+            const data = await res.json();
 
-        const btn = card.querySelector('.btn-download');
-        const progressContainer = card.querySelector('.download-progress-container');
-        const progressFill = card.querySelector('.download-progress-fill');
+            if (data.format_id !== formatId && data.status !== 'waiting') return;
 
-        if (data.status === 'downloading') {
-            btn.classList.add('downloading');
-            btn.disabled = true;
-            const progress = Math.round(data.progress || 0);
+            if (data.status === 'downloading') {
+                btn.classList.add('downloading');
+                btn.disabled = true;
+                const progress = Math.round(data.progress || 0);
 
-            // Using the badge-style percentage display
-            btn.innerHTML = `
-                <span class="dl-status-text">Downloading...</span>
-                <span class="dl-percent-badge">${progress}%</span>
-            `;
+                btn.innerHTML = `
+                    <span class="dl-status-text">Downloading...</span>
+                    <span class="dl-percent-badge">${progress}%</span>
+                `;
 
-            if (progressContainer) {
-                progressContainer.style.display = 'block';
-                progressFill.style.width = `${progress}%`;
+                if (progressContainer) {
+                    progressContainer.style.display = 'block';
+                    progressFill.style.width = `${progress}%`;
+                }
+            } else if (data.status === 'ready') {
+                btn.innerHTML = `<span>Finalizing...</span>`;
+                if (progressFill) progressFill.style.width = '100%';
+                // Keep polling until the real browser download gives its own progress
+                // or just stop here if the fetch has started.
             }
-        } else if (data.status === 'merging') {
-            btn.innerHTML = `<span class="loader" style="display:inline-block; width:14px; height:14px; border-width: 2px;"></span> Finishing...`;
-            if (progressFill) progressFill.style.width = '100%';
-        } else if (data.status === 'ready') {
-            btn.innerHTML = `<span>Finalizing...</span>`;
-            if (progressFill) progressFill.style.width = '100%';
+        } catch (e) {
+            console.error("Polling error:", e);
         }
-    };
-    socket.onclose = () => setTimeout(setupProgressSocket, 3000);
+    }, 2000);
+    return pollInterval;
 }
 
-setupProgressSocket();
+// setupProgressSocket(); // Disabled in favor of Polling for Vercel
 
 fetchBtn.addEventListener('click', async () => {
     const url = videoUrlInput.value.trim();
@@ -184,16 +183,20 @@ async function performDownload(url, formatId, ext, btn) {
     const progressContainer = item ? item.querySelector('.download-progress-container') : null;
     const progressFill = item ? item.querySelector('.download-progress-fill') : null;
 
-    btn.innerHTML = `<span>Saving...</span>`;
-    showToast(`Requesting ${ext.toUpperCase()}...`);
-
+    let pollId;
     try {
         const timestamp = Math.floor(Date.now() / 1000);
         const decorativeName = `VideoQuest_${timestamp}.${ext}`;
         const downloadUrl = `${API_BASE}/api/download/${decorativeName}?url=${encodeURIComponent(url)}&format_id=${formatId}&ext=${ext}&client_id=${CLIENT_ID}`;
 
+        // Start server-side polling
+        pollId = await pollProgress(formatId, btn, progressContainer, progressFill);
+
         const response = await fetch(downloadUrl);
         if (!response.ok) throw new Error("Server error during download");
+
+        // Stop server-side polling as browser-side download starts
+        if (pollId) clearInterval(pollId);
 
         const contentLength = response.headers.get('content-length');
         const total = parseInt(contentLength, 10);
@@ -234,6 +237,7 @@ async function performDownload(url, formatId, ext, btn) {
 
     } catch (err) {
         console.error(err);
+        if (pollId) clearInterval(pollId);
         showToast("Connection or memory error", "error");
         btn.disabled = false;
         btn.innerHTML = "Retry Download";

@@ -61,6 +61,8 @@ def cleanup_file(filepath: str):
     except Exception as e:
         logger.error(f"Error cleaning up {filepath}: {e}")
 
+PROGRESS_STORE = {}
+
 class ProgressTracker:
     def __init__(self):
         self.clients: Dict[str, WebSocket] = {}
@@ -74,6 +76,9 @@ class ProgressTracker:
             del self.clients[client_id]
 
     async def send_progress(self, client_id: str, data: dict):
+        # Update polling store
+        PROGRESS_STORE[client_id] = data
+        
         if client_id in self.clients:
             try:
                 await self.clients[client_id].send_json(data)
@@ -137,6 +142,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
+@app.get("/api/progress/{client_id}")
+async def get_progress(client_id: str):
+    data = PROGRESS_STORE.get(client_id, {"status": "waiting"})
+    return data
 
 @app.post("/api/info")
 async def get_info(request: InfoRequest):
